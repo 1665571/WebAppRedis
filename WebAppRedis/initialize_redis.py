@@ -1,14 +1,16 @@
 import redis
 
 def initialize_products(redis_client):
-    #TODO: carga 10 productos a la base de datos en AWS.
-    pass
-
+    # Carga 10 productos de ejemplo en Redis
+    for i in range(1, 11):
+        key = f"product:{i}"
+        value = f"Producto {i}"
+        redis_client.set(key, value)
 
 if __name__ == "__main__":
     try:
-        #TODO: Configura la conexión a Redis 
-        #redis_client = redis_client es el objeto de conexión a Redis
+        # Conexión a Redis local
+        redis_client = redis.Redis(host='localhost', port=6379, db=0)
 
         # Inicializa los productos en Redis
         initialize_products(redis_client)
@@ -16,3 +18,4 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"Error al conectarse a Redis: {e}")
+
