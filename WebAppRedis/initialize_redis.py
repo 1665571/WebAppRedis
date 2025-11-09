@@ -2,6 +2,7 @@ import redis
 
 def initialize_products(redis_client):
     #TODO: carga 10 productos a la base de datos en AWS.
+    pass
 
 
 if __name__ == "__main__":
