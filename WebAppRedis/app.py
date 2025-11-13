@@ -12,8 +12,7 @@ redis_client = redis.Redis(
     ssl=True
 )
 
-# Para este ejemplo asumimos un usuario fijo (en producción usar sesiones o auth)
-USER_ID = "user1"
+USER_ID = "user1"  # Para pruebas, usar un ID fijo
 
 @app.route('/')
 def home():
@@ -22,7 +21,6 @@ def home():
 @app.route('/products', methods=['GET'])
 def get_products():
     products = []
-    # Obtener todas las keys de productos
     cursor = '0'
     while cursor != 0:
         cursor, keys = redis_client.scan(cursor=cursor, match='product:*', count=100)
@@ -46,24 +44,20 @@ def get_cart():
 @app.route('/cart', methods=['POST'])
 def add_to_cart():
     data = request.json
-    product_id = data.get("id")
+    product_id = str(data.get("product_id"))  # <-- Cambiado para JS
     if not product_id:
-        return jsonify({"error": "No se especificó product_id"}), 400
+        return jsonify({"status": "error", "message": "No se especificó product_id"}), 400
 
-    # Verificar que el producto existe en Redis
     product_key = f"product:{product_id}"
     if not redis_client.exists(product_key):
-        return jsonify({"error": "Producto no encontrado"}), 404
+        return jsonify({"status": "error", "message": "Producto no encontrado"}), 404
 
     product_data = redis_client.hgetall(product_key)
-
-    # Crear o actualizar la entrada en el carrito
     cart_item_key = f"cart:{USER_ID}:{product_id}"
+
     if redis_client.exists(cart_item_key):
-        # Incrementar cantidad
         redis_client.hincrby(cart_item_key, "quantity", 1)
     else:
-        # Crear nueva entrada en carrito
         redis_client.hset(cart_item_key, mapping={
             "id": product_data["id"],
             "name": product_data["name"],
@@ -71,11 +65,10 @@ def add_to_cart():
             "quantity": 1
         })
 
-    return jsonify({"message": "Producto añadido al carrito"}), 200
+    return jsonify({"status": "added"})
 
 @app.route('/checkout', methods=['POST'])
 def checkout():
-    # Obtener todas las keys del carrito del usuario
     cursor = '0'
     cart_key_prefix = f"cart:{USER_ID}:*"
     keys_to_delete = []
@@ -84,11 +77,10 @@ def checkout():
         keys_to_delete.extend(keys)
         cursor = int(cursor)
 
-    # Borrar todas las keys del carrito
     if keys_to_delete:
         redis_client.delete(*keys_to_delete)
 
-    return jsonify({"message": "Compra completada y carrito vaciado"}), 200
+    return jsonify({"status": "completed"})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
