@@ -72,11 +72,32 @@ def checkout():
     cursor = '0'
     cart_key_prefix = f"cart:{USER_ID}:*"
     keys_to_delete = []
+    insufficient_stock = []
+
+    # Primero, revisamos el carrito
     while cursor != 0:
         cursor, keys = redis_client.scan(cursor=cursor, match=cart_key_prefix, count=100)
+        for key in keys:
+            item = redis_client.hgetall(key)
+            product_key = f"product:{item['id']}"
+            product_data = redis_client.hgetall(product_key)
+            stock = int(product_data.get("stock", 0))
+            quantity = int(item.get("quantity", 0))
+            if quantity > stock:
+                insufficient_stock.append({"id": item["id"], "name": item["name"], "available": stock, "requested": quantity})
         keys_to_delete.extend(keys)
         cursor = int(cursor)
 
+    if insufficient_stock:
+        return jsonify({"status": "error", "message": "Stock insuficiente", "details": insufficient_stock}), 400
+
+    # Si hay stock suficiente, descontamos y vaciamos el carrito
+    for key in keys_to_delete:
+        item = redis_client.hgetall(key)
+        product_key = f"product:{item['id']}"
+        quantity = int(item.get("quantity", 0))
+        redis_client.hincrby(product_key, "stock", -quantity)
+    
     if keys_to_delete:
         redis_client.delete(*keys_to_delete)
 
